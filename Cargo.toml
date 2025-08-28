@@ -1,0 +1,66 @@
+[package]
+name = "simd-kernels"
+description = "Lightning Fast, Arrow-Compatible Compute Kernels"
+version = "0.3.0"
+edition = "2024"
+authors = ['SpaceCell Enterprises Ltd']
+license-file = "LICENSE"
+keywords = [
+    "simd",
+    "kernels",
+    "arrow",
+    "polars",
+    "data",
+]
+[dependencies]
+minarrow = { version = "0.8.2", default-features = false, optional = false, features = ["views"] }
+num-traits = "0.2.19"
+ordered-float = { version = "5.0.0", optional = true }
+num-complex = { version = "0.4.6", optional = true }
+blas = { version = "0.23.0", optional = true }
+lapack = { version = "0.20.0", optional = true }
+blas-src = { version = "0.10", features = ["openblas"], optional = true }
+lapack-src = { version = "0.10", features = ["openblas"], optional = true }
+openblas-src = { version = "0.10", features = ["system"], optional = true }
+ahash = { version = "0.8.12", optional = true }
+rand = "0.9.1"
+
+# SIMD-accelerated sorting
+voracious_radix_sort = { version = "1.2", optional = true }
+
+[build-dependencies]
+cc = { version = "1", optional = true }
+
+[features]
+large_string = ["minarrow/large_string"]
+datetime = ["minarrow/datetime"]
+simd = ["minarrow/simd"]
+# Replaces all hashmaps and hashsets used for count distinct operations
+# and categorical dictionary interning with the faster ahash.
+fast_hash = ["dep:ahash"]
+
+# Enables linear algebra kernels. These call out to BLAS and LAPACK.
+# Both `Intel` and `OpenBLAS` are supported. When using Intel one should understand its
+# license terms, with an FAQ available at
+# https://www.intel.com/content/www/us/en/developer/articles/tool/onemkl-license-faq.html
+linear_algebra = ["blas", "lapack", "blas-src", "lapack-src", "openblas-src"]
+
+# Arbitrary element-wise functions. This pattern provides the basis,
+# and it is extendable to any set.
+universal_functions = []
+# Enables FFT kernels
+fourier_transforms = ["dep:num-complex"]
+# Enables CDF and PDF probability distributions
+probability_distributions = []
+extended_numeric_types = ["minarrow/extended_numeric_types"]
+
+# SIMD-accelerated radix sort for maximum integer sorting performance
+simd_sort = ["dep:voracious_radix_sort"]
+
+default = [
+    "large_string",
+    "probability_distributions",
+    "simd",
+    "fourier_transforms",
+    "universal_functions",
+]
