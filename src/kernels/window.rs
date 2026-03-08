@@ -32,6 +32,8 @@ use num_traits::{Float, Num, NumCast, One, Zero};
 use minarrow::StringAVT;
 use minarrow::utils::confirm_mask_capacity;
 
+use crate::kernels::sort::total_cmp_f;
+
 // Helpers
 #[inline(always)]
 fn new_null_mask(len: usize) -> Bitmask {
@@ -1048,7 +1050,7 @@ pub fn rank_float<T: Float + Copy>(window: FloatAVT<T>) -> IntegerArray<i32> {
     } else {
         &arr.null_mask
     };
-    rank_numeric(data, null_mask.as_ref(), |a, b| a.partial_cmp(b).unwrap())
+    rank_numeric(data, null_mask.as_ref(), total_cmp_f)
 }
 
 /// Computes standard SQL ROW_NUMBER() ranking for string data with lexicographic ordering.
@@ -1263,7 +1265,7 @@ pub fn dense_rank_float<T: Float + Copy>(
     dense_rank_numeric(
         data,
         null_mask.as_ref(),
-        |a, b| a.partial_cmp(b).unwrap(),
+        total_cmp_f,
         |a, b| a == b,
     )
 }

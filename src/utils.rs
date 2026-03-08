@@ -94,10 +94,23 @@ pub fn write_global_bitmask_block(
 ) {
     let n_bytes = (n_lanes + 7) / 8;
     let base = offset / 8;
-    let block_bytes = &block_mask.bits[..n_bytes];
-    for b in 0..n_bytes {
-        if base + b < out_mask.bits.len() {
-            out_mask.bits[base + b] |= block_bytes[b];
+    let bit_off = offset % 8;
+
+    if bit_off == 0 {
+        for b in 0..n_bytes {
+            if base + b < out_mask.bits.len() {
+                out_mask.bits[base + b] |= block_mask.bits[b];
+            }
+        }
+    } else {
+        for b in 0..n_bytes {
+            let src = block_mask.bits[b];
+            if base + b < out_mask.bits.len() {
+                out_mask.bits[base + b] |= src << bit_off;
+            }
+            if base + b + 1 < out_mask.bits.len() {
+                out_mask.bits[base + b + 1] |= src >> (8 - bit_off);
+            }
         }
     }
 }

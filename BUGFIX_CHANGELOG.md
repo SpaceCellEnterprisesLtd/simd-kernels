@@ -60,14 +60,59 @@ Instantiated for all 6 types: f64, f32, i64, u64, i32, u32.
 **Rationale:** Numeric BETWEEN uses `x >= min && x <= max` (inclusive both ends). String BETWEEN same. Dict BETWEEN was inconsistent with exclusive lower bound.
 **Test needed:** Unit test with value equal to lower bound confirming it's included.
 
+### M3. Null mask offset bug in (None, Some(m)) pattern
+**Files:** `src/kernels/comparison.rs`, `src/kernels/binary.rs`
+**Fix:** Split `(Some(m), None) | (None, Some(m))` into separate arms using `lhs_off` and `rhs_off` respectively.
+**Rationale:** The OR pattern always used `lhs_off` for both cases, so the RHS-only null mask was sliced at the wrong offset.
+
+### M4. apply_cmp_str/dict ignore offsets when merging masks
+**Files:** `src/kernels/binary.rs` (apply_cmp_str, apply_cmp_dict)
+**Fix:** Pre-slice masks by offset before passing to `merge_bitmasks_to_new`.
+**Rationale:** Full-array masks were merged without windowing, reading bits from wrong positions.
+
+### M5. cmp_dict_between output carries full-array null mask
+**File:** `src/kernels/logical.rs:868`
+**Fix:** `mask.cloned()` → `mask.map(|m| m.slice_clone(loff, llen))`
+**Rationale:** Output carried the full-array mask instead of the windowed slice.
+
+### M6. Scalar erfc() returns 0.0 for NaN
+**File:** `src/kernels/scientific/erf.rs:193-195`
+**Fix:** Added `if x.is_nan() { return f64::NAN; }` before the infinity branch.
+**Rationale:** The `ix >= 0x7ff00000` check matched both NaN and infinity but only returned inf-appropriate values.
+**Test needed:** Unit test confirming `erfc(f64::NAN).is_nan()`.
+
+### M7. Binomial PMF NaN at degenerate p=0/p=1
+**Files:** `src/kernels/scientific/distributions/univariate/binomial/std.rs`, `binomial/simd.rs`
+**Fix:** Added fast paths in scalar_body: `if p == 0.0 { return if ki == 0 { 1.0 } else { 0.0 } }` and same for p=1.0/ki==n.
+**Rationale:** `0 * ln(0)` produces NaN. At p=0 only k=0 has probability 1; at p=1 only k=n has probability 1.
+**Test needed:** SciPy reference values for p=0 and p=1.
+
+## LOW
+
+### L1. Rolling product integer divide-by-zero
+**File:** `src/kernels/window.rs:400-441`
+**Fix:** Replaced `rolling_push_pop_to` call with zero-aware push/pop loop tracking `nz_product` and `zero_count` separately.
+**Rationale:** When a zero leaves the window, `product / 0` panics for integers. Tracking zeros separately avoids division by zero while keeping O(n) performance.
+**Test needed:** Unit test with zeros in the window, e.g. `[1, 0, 3, 4]` window=2.
+
+### L2. rank_float/dense_rank_float NaN panic
+**File:** `src/kernels/window.rs:1051,1266`
+**Fix:** Replaced `a.partial_cmp(b).unwrap()` with `total_cmp_f` (already exists in `sort.rs`).
+**Rationale:** `partial_cmp` returns `None` for NaN, causing `unwrap()` to panic. `total_cmp_f` provides total ordering with NaN > everything.
+
+### L3. softplus overflow for x > ~709
+**File:** `src/kernels/scientific/scalar.rs:271-273`
+**Fix:** Added fast path: `if x > 20.0 { x }` before `(1.0 + x.exp()).ln()`.
+**Rationale:** `e^709` exceeds `f64::MAX`, producing infinity. For x > 20, `softplus(x) ≈ x` to full f64 precision.
+
+### L4. write_global_bitmask_block non-byte-aligned offset
+**File:** `src/utils.rs:89-103`
+**Fix:** Added bit-shift path for `offset % 8 != 0`: each source byte is split across two destination bytes via `src << bit_off` and `src >> (8 - bit_off)`.
+**Rationale:** On non-AVX-512 targets (W64=4 or W64=2), SIMD block offsets are not byte-aligned, causing bits to be written to wrong positions.
+
 ## NOT YET APPLIED (remaining from plan)
 
-### M3. Null mask offset bug in (None, Some(m)) pattern
-### M4. apply_cmp_str/dict ignore offsets when merging masks
-### M5. cmp_dict_between output carries full-array null mask
-### M6. Scalar erfc() returns 0.0 for NaN
-### M7. Binomial PMF NaN at degenerate p=0/p=1
-### L1-L7. Low priority fixes
+### L5-L7. Low priority fixes
 
 ## DROPPED
 

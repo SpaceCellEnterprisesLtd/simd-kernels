@@ -268,9 +268,13 @@ impl_vecmap!(sign, sign_to, sign_elem, |x: f64| x.signum());
 // Activation functions
 impl_vecmap!(sigmoid, sigmoid_to, sigmoid_elem, |x: f64| 1.0
     / (1.0 + (-x).exp()));
-impl_vecmap!(softplus, softplus_to, softplus_elem, |x: f64| (1.0
-    + x.exp())
-.ln());
+impl_vecmap!(softplus, softplus_to, softplus_elem, |x: f64| if x
+    > 20.0
+{
+    x
+} else {
+    (1.0 + x.exp()).ln()
+});
 impl_vecmap!(relu, relu_to, relu_elem, |x: f64| if x > 0.0 {
     x
 } else {
