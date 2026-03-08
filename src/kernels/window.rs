@@ -49,7 +49,7 @@ fn prealloc_vec<T: Copy>(len: usize) -> Vec64<T> {
 
 // Rolling kernels (sum, product, min, max, mean, count)
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Generic sliding window aggregator for kernels that allow an
 /// incremental push and pop update (sum, product, etc.).
@@ -144,7 +144,7 @@ where
     (out, out_mask)
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Generic rolling extreme aggregator (min/max) for a subwindow over a slice.
 ///
@@ -220,7 +220,7 @@ where
     (out, out_mask)
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Computes rolling sums over a sliding window for integer data with null-aware semantics.
 /// Panics if `out.len() != data.len()`.
@@ -280,7 +280,7 @@ pub fn rolling_sum_int<T: Num + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Computes rolling sums over a sliding window for floating-point data.
 /// Panics if `out.len() != data.len()`.
@@ -340,7 +340,7 @@ pub fn rolling_sum_float<T: Float + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Computes rolling sums over i32 data (pre-converted from booleans).
 /// Panics if `out.len() != data.len()`.
@@ -397,7 +397,7 @@ pub fn rolling_sum_bool(window: BooleanAVT<'_, ()>, subwindow: usize) -> Integer
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_product_int_to<T: Num + Copy + One + Zero + PartialEq>(
     data: &[T],
@@ -483,7 +483,7 @@ pub fn rolling_product_int<T: Num + Copy + One + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_product_float_to<T: Float + Copy + One + Zero>(
     data: &[T],
@@ -526,7 +526,7 @@ pub fn rolling_product_float<T: Float + Copy + One + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Computes rolling logical AND over boolean data (pre-converted to i32: 1=true, 0=false).
 #[inline]
@@ -601,7 +601,7 @@ pub fn rolling_product_bool(window: BooleanAVT<'_, ()>, subwindow: usize) -> Boo
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_mean_int_to<T: NumCast + Copy + Zero>(
     data: &[T],
@@ -658,7 +658,7 @@ pub fn rolling_mean_int<T: NumCast + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_mean_float_to<T: Float + Copy + Zero>(
     data: &[T],
@@ -719,7 +719,7 @@ pub fn rolling_mean_float<T: Float + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_min_int_to<T: Ord + Copy + Zero>(
     data: &[T],
@@ -761,7 +761,7 @@ pub fn rolling_min_int<T: Ord + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_max_int_to<T: Ord + Copy + Zero>(
     data: &[T],
@@ -799,7 +799,7 @@ pub fn rolling_max_int<T: Ord + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_min_float_to<T: Float + Copy + Zero>(
     data: &[T],
@@ -841,7 +841,7 @@ pub fn rolling_min_float<T: Float + Copy + Zero>(
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn rolling_max_float_to<T: Float + Copy + Zero>(
     data: &[T],
@@ -902,6 +902,27 @@ pub fn rolling_max_float<T: Float + Copy + Zero>(
 /// let result = rolling_count((0, 5), 3); // 5 elements, window size 3
 /// ```
 #[inline]
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline]
+pub fn rolling_count_to(
+    len: usize,
+    subwindow: usize,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) {
+    for i in 0..len {
+        let start = if i + 1 >= subwindow {
+            i + 1 - subwindow
+        } else {
+            0
+        };
+        let count = (i - start + 1) as i32;
+        let valid_row = subwindow > 0 && i + 1 >= subwindow;
+        unsafe { out_mask.set_unchecked(i, valid_row) };
+        out[i] = if valid_row { count } else { 0 };
+    }
+}
+
 pub fn rolling_count(window: (Offset, Length), subwindow: usize) -> IntegerArray<i32> {
     let (_offset, len) = window;
     let mut out = prealloc_vec::<i32>(len);
@@ -926,8 +947,13 @@ pub fn rolling_count(window: (Offset, Length), subwindow: usize) -> IntegerArray
 // Rank and Dense-rank kernels
 
 #[inline(always)]
-fn rank_numeric<T, F>(data: &[T], mask: Option<&Bitmask>, mut cmp: F) -> IntegerArray<i32>
-where
+fn rank_numeric_to<T, F>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    mut cmp: F,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) where
     T: Copy,
     F: FnMut(&T, &T) -> std::cmp::Ordering,
 {
@@ -935,16 +961,24 @@ where
     let mut indices: Vec<usize> = (0..n).collect();
     indices.sort_by(|&i, &j| cmp(&data[i], &data[j]));
 
-    let mut out = vec64![0i32; n];
-    let mut out_mask = Bitmask::new_set_all(n, false);
-
     for (rank, &i) in indices.iter().enumerate() {
         if mask.map_or(true, |m| unsafe { m.get_unchecked(i) }) {
             out[i] = (rank + 1) as i32;
             unsafe { out_mask.set_unchecked(i, true) };
         }
     }
+}
 
+#[inline(always)]
+fn rank_numeric<T, F>(data: &[T], mask: Option<&Bitmask>, cmp: F) -> IntegerArray<i32>
+where
+    T: Copy,
+    F: FnMut(&T, &T) -> std::cmp::Ordering,
+{
+    let n = data.len();
+    let mut out = vec64![0i32; n];
+    let mut out_mask = Bitmask::new_set_all(n, false);
+    rank_numeric_to(data, mask, cmp, &mut out, &mut out_mask);
     IntegerArray {
         data: out.into(),
         null_mask: Some(out_mask),
@@ -987,6 +1021,28 @@ where
 /// let result = rank_int((&arr, 0, arr.len()));
 /// // Output: [4, 1, 3, 2] - ROW_NUMBER() style ranking
 /// ```
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline(always)]
+pub fn rank_int_to<T: Ord + Copy>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) {
+    rank_numeric_to(data, mask, T::cmp, out, out_mask);
+}
+
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline(always)]
+pub fn rank_float_to<T: Float + Copy>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) {
+    rank_numeric_to(data, mask, total_cmp_f, out, out_mask);
+}
+
 #[inline(always)]
 pub fn rank_int<T: Ord + Copy>(window: IntegerAVT<T>) -> IntegerArray<i32> {
     let (arr, offset, len) = window;
@@ -1125,12 +1181,14 @@ pub fn rank_str<T: Integer>(arr: StringAVT<T>) -> Result<IntegerArray<i32>, Kern
 }
 
 #[inline(always)]
-fn dense_rank_numeric<T, F, G>(
+fn dense_rank_numeric_to<T, F, G>(
     data: &[T],
     mask: Option<&Bitmask>,
     mut sort: F,
     mut eq: G,
-) -> Result<IntegerArray<i32>, KernelError>
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) -> Result<(), KernelError>
 where
     T: Copy,
     F: FnMut(&T, &T) -> std::cmp::Ordering,
@@ -1146,9 +1204,6 @@ where
     uniqs.sort_by(&mut sort);
     uniqs.dedup_by(|a, b| eq(&*a, &*b));
 
-    let mut out = prealloc_vec::<i32>(n);
-    let mut out_mask = Bitmask::new_set_all(n, false);
-
     for i in 0..n {
         if mask.map_or(true, |m| unsafe { m.get_unchecked(i) }) {
             let rank = uniqs.binary_search_by(|x| sort(x, &data[i])).unwrap() + 1;
@@ -1159,6 +1214,25 @@ where
         }
     }
 
+    Ok(())
+}
+
+#[inline(always)]
+fn dense_rank_numeric<T, F, G>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    sort: F,
+    eq: G,
+) -> Result<IntegerArray<i32>, KernelError>
+where
+    T: Copy,
+    F: FnMut(&T, &T) -> std::cmp::Ordering,
+    G: FnMut(&T, &T) -> bool,
+{
+    let n = data.len();
+    let mut out = prealloc_vec::<i32>(n);
+    let mut out_mask = Bitmask::new_set_all(n, false);
+    dense_rank_numeric_to(data, mask, sort, eq, &mut out, &mut out_mask)?;
     Ok(IntegerArray {
         data: out.into(),
         null_mask: Some(out_mask),
@@ -1207,6 +1281,28 @@ where
 /// // Output: [1, 3, 2, 3] - dense ranking with tied values
 /// ```
 #[inline(always)]
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline(always)]
+pub fn dense_rank_int_to<T: Ord + Copy>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) -> Result<(), KernelError> {
+    dense_rank_numeric_to(data, mask, T::cmp, |a, b| a == b, out, out_mask)
+}
+
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline(always)]
+pub fn dense_rank_float_to<T: Float + Copy>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    out: &mut [i32],
+    out_mask: &mut Bitmask,
+) -> Result<(), KernelError> {
+    dense_rank_numeric_to(data, mask, total_cmp_f, |a, b| a == b, out, out_mask)
+}
+
 pub fn dense_rank_int<T: Ord + Copy>(
     window: IntegerAVT<T>,
 ) -> Result<IntegerArray<i32>, KernelError> {
@@ -1346,7 +1442,7 @@ pub fn dense_rank_str<T: Integer>(arr: StringAVT<T>) -> Result<IntegerArray<i32>
 
 // Lag / Lead / Shift kernels
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 ///
 /// Panics if `out.len() != len`.
 #[inline(always)]
@@ -1478,7 +1574,7 @@ fn shift_str_with_bounds<T: Integer>(
 /// let arr = IntegerArray::<i32>::from_slice(&[10, 20, 30, 40]);
 /// let result = lag_int((&arr, 0, arr.len()), 1);
 /// ```
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn lag_int_to<T: Copy + Default>(
     data: &[T],
@@ -1537,7 +1633,7 @@ pub fn lag_int<T: Copy + Default>(window: IntegerAVT<T>, n: usize) -> IntegerArr
 /// let arr = IntegerArray::<i32>::from_slice(&[10, 20, 30, 40]);
 /// let result = lead_int((&arr, 0, arr.len()), 2);
 /// ```
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn lead_int_to<T: Copy + Default>(
     data: &[T],
@@ -1572,7 +1668,7 @@ pub fn lead_int<T: Copy + Default>(window: IntegerAVT<T>, n: usize) -> IntegerAr
     }
 }
 
-/// Zero-allocation variant: writes directly to caller's output buffers.
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
 #[inline]
 pub fn lag_float_to<T: Copy + num_traits::Zero>(
     data: &[T],
@@ -1587,6 +1683,27 @@ pub fn lag_float_to<T: Copy + num_traits::Zero>(
         mask,
         len,
         |i| if i >= n { Some(i - n) } else { None },
+        T::zero(),
+        out,
+        out_mask,
+    );
+}
+
+/// Zero-allocation variant that writes directly to caller-provided output buffers.
+#[inline]
+pub fn lead_float_to<T: Copy + num_traits::Zero>(
+    data: &[T],
+    mask: Option<&Bitmask>,
+    n: usize,
+    out: &mut [T],
+    out_mask: &mut Bitmask,
+) {
+    let len = data.len();
+    shift_with_bounds_to(
+        data,
+        mask,
+        len,
+        |i| if i + n < len { Some(i + n) } else { None },
         T::zero(),
         out,
         out_mask,
