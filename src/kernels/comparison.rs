@@ -464,7 +464,8 @@ where
     let merged_null_mask: Option<Bitmask> =
         match (lhs_arr.null_mask.as_ref(), rhs_arr.null_mask.as_ref()) {
             (None, None) => None,
-            (Some(m), None) | (None, Some(m)) => Some(m.slice_clone(lhs_off, len)),
+            (Some(m), None) => Some(m.slice_clone(lhs_off, len)),
+            (None, Some(m)) => Some(m.slice_clone(rhs_off, len)),
             (Some(a), Some(b)) => {
                 let am = (a, lhs_off, len);
                 let bm = (b, rhs_off, len);
@@ -476,7 +477,8 @@ where
     let merged_null_mask: Option<Bitmask> =
         match (lhs_arr.null_mask.as_ref(), rhs_arr.null_mask.as_ref()) {
             (None, None) => None,
-            (Some(m), None) | (None, Some(m)) => Some(m.slice_clone(lhs_off, len)),
+            (Some(m), None) => Some(m.slice_clone(lhs_off, len)),
+            (None, Some(m)) => Some(m.slice_clone(rhs_off, len)),
             (Some(a), Some(b)) => {
                 let am = (a, lhs_off, len);
                 let bm = (b, rhs_off, len);

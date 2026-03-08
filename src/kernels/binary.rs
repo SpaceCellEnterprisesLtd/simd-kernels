@@ -331,7 +331,8 @@ pub fn apply_cmp_bool(
     let merged_null_mask: Option<Bitmask> =
         match (lhs_arr.null_mask.as_ref(), rhs_arr.null_mask.as_ref()) {
             (None, None) => None,
-            (Some(m), None) | (None, Some(m)) => Some(m.slice_clone(lhs_off, len)),
+            (Some(m), None) => Some(m.slice_clone(lhs_off, len)),
+            (None, Some(m)) => Some(m.slice_clone(rhs_off, len)),
             (Some(a), Some(b)) => {
                 use minarrow::kernels::bitmask::simd::and_masks_simd;
                 let am = (a, lhs_off, len);
@@ -344,7 +345,8 @@ pub fn apply_cmp_bool(
     let merged_null_mask: Option<Bitmask> =
         match (lhs_arr.null_mask.as_ref(), rhs_arr.null_mask.as_ref()) {
             (None, None) => None,
-            (Some(m), None) | (None, Some(m)) => Some(m.slice_clone(lhs_off, len)),
+            (Some(m), None) => Some(m.slice_clone(lhs_off, len)),
+            (None, Some(m)) => Some(m.slice_clone(rhs_off, len)),
             (Some(a), Some(b)) => {
                 let am = (a, lhs_off, len);
                 let bm = (b, rhs_off, len);
@@ -489,7 +491,9 @@ pub fn apply_cmp_str<T: Integer>(
 
     assert_eq!(llen, rlen, "apply_cmp_str: slice lengths must match");
 
-    let null_mask = merge_bitmasks_to_new(larr.null_mask.as_ref(), rarr.null_mask.as_ref(), llen);
+    let lmask = larr.null_mask.as_ref().map(|m| m.slice_clone(loff, llen));
+    let rmask = rarr.null_mask.as_ref().map(|m| m.slice_clone(roff, rlen));
+    let null_mask = merge_bitmasks_to_new(lmask.as_ref(), rmask.as_ref(), llen);
 
     let mut out = match op {
         ComparisonOperator::Between => cmp_str_between((larr, loff, llen), (rarr, roff, rlen)),
@@ -649,7 +653,9 @@ pub fn apply_cmp_dict<T: Integer + Hash>(
     let (larr, loff, llen) = lhs;
     let (rarr, roff, rlen) = rhs;
     assert_eq!(llen, rlen, "apply_cmp_dict: slice lengths must match");
-    let null_mask = merge_bitmasks_to_new(larr.null_mask.as_ref(), rarr.null_mask.as_ref(), llen);
+    let lmask = larr.null_mask.as_ref().map(|m| m.slice_clone(loff, llen));
+    let rmask = rarr.null_mask.as_ref().map(|m| m.slice_clone(roff, rlen));
+    let null_mask = merge_bitmasks_to_new(lmask.as_ref(), rmask.as_ref(), llen);
     let mut out = match op {
         ComparisonOperator::Between => cmp_dict_between((larr, loff, llen), (rarr, roff, rlen)),
         ComparisonOperator::In => cmp_dict_in((larr, loff, llen), (rarr, roff, rlen)),

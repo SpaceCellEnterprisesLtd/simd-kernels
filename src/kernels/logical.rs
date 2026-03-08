@@ -865,7 +865,7 @@ pub fn cmp_dict_between<'a, T: Integer>(
     }
     Ok(BooleanArray {
         data: out.into(),
-        null_mask: mask.cloned(),
+        null_mask: mask.map(|m| m.slice_clone(loff, llen)),
         len: llen,
         _phantom: PhantomData,
     })
