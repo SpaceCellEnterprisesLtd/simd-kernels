@@ -9,7 +9,7 @@
 
 use minarrow::Vec64;
 use rand::rngs::ThreadRng;
-use rand::{Rng, rng};
+use rand::{Rng, RngExt, rng};
 use std::f64::consts::PI;
 
 /// Thread-local statistical distribution sampler backed by a high-quality PRNG.

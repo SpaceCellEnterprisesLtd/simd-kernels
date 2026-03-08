@@ -20,7 +20,7 @@ use std::f64::consts::PI;
 
 use lapack::{dpotrf, dpotrs};
 use minarrow::{Bitmask, FloatArray, Vec64};
-use rand::{Rng, rng};
+use rand::{RngExt, rng};
 
 use crate::kernels::scientific::distributions::{
     shared::sampler::{Sampler, sample_gamma},

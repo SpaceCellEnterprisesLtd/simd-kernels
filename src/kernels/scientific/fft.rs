@@ -195,7 +195,7 @@ pub fn block_fft(
 mod tests {
     use super::*;
     use num_complex::Complex64;
-    use rand::Rng;
+    use rand::RngExt;
 
     // ---- SciPy/NumPy FFT references ----
 

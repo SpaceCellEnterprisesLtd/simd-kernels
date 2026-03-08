@@ -1,7 +1,7 @@
 [package]
 name = "simd-kernels"
 description = "Lightning Fast, Arrow-Compatible Compute Kernels"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 authors = ['SpaceCell Enterprises Ltd']
 license-file = "LICENSE"
@@ -13,17 +13,17 @@ keywords = [
     "data",
 ]
 [dependencies]
-minarrow = { version = "0.8.2", default-features = false, optional = false, features = ["views"] }
+minarrow = { version = "0.9.1", default-features = false, optional = false, features = ["views"] }
 num-traits = "0.2.19"
-ordered-float = { version = "5.0.0", optional = true }
+ordered-float = { version = "5.1.0", optional = true }
 num-complex = { version = "0.4.6", optional = true }
 blas = { version = "0.23.0", optional = true }
 lapack = { version = "0.20.0", optional = true }
-blas-src = { version = "0.10", features = ["openblas"], optional = true }
-lapack-src = { version = "0.10", features = ["openblas"], optional = true }
+blas-src = { version = "0.14", features = ["openblas"], optional = true }
+lapack-src = { version = "0.13", features = ["openblas"], optional = true }
 openblas-src = { version = "0.10", features = ["system"], optional = true }
 ahash = { version = "0.8.12", optional = true }
-rand = "0.9.1"
+rand = "0.10.0"
 
 # SIMD-accelerated sorting
 voracious_radix_sort = { version = "1.2", optional = true }
