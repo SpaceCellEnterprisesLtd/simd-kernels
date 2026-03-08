@@ -111,9 +111,11 @@ pub fn chi_square_cdf_std_to(
     let k2 = 0.5 * df;
 
     let eval = |xi: f64| -> f64 {
-        if xi < 0.0 {
+        if xi.is_nan() {
+            f64::NAN
+        } else if xi < 0.0 {
             0.0
-        } else if !xi.is_finite() {
+        } else if xi.is_infinite() {
             1.0
         } else {
             reg_lower_gamma(k2, 0.5 * xi)

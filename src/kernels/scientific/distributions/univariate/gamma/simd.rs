@@ -33,12 +33,12 @@ use crate::utils::has_nulls;
 pub fn gamma_pdf_simd_to(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if shape <= 0.0 || !shape.is_finite() || scale <= 0.0 || !scale.is_finite() {
+    if shape <= 0.0 || !shape.is_finite() || rate <= 0.0 || !rate.is_finite() {
         return Err(KernelError::InvalidArguments(
             "gamma_pdf: invalid shape or rate".into(),
         ));
@@ -49,7 +49,7 @@ pub fn gamma_pdf_simd_to(
 
     const N: usize = W64;
     let ln_gamma_k = ln_gamma(shape);
-    let beta = scale;
+    let beta = rate;
     let log_norm = shape * beta.ln() - ln_gamma_k;
 
     let shape_v = Simd::<f64, N>::splat(shape);
@@ -127,21 +127,21 @@ pub fn gamma_pdf_simd_to(
 /// SIMD-accelerated implementation of gamma distribution probability density function.
 ///
 /// Computes the probability density function (PDF) of the gamma distribution with shape parameter α
-/// and rate parameter β (scale = 1/β) using vectorised SIMD operations for enhanced performance
+/// and rate parameter β using vectorised SIMD operations for enhanced performance
 /// on large datasets.
 ///
 ///
 /// ## Parameters
 /// - `x`: Input values where PDF should be evaluated (domain: x ≥ 0)
 /// - `shape`: Shape parameter α > 0 controlling distribution shape
-/// - `scale`: Rate parameter β > 0 controlling distribution scale (inverse of scale parameter)
+/// - `rate`: Rate parameter β > 0
 /// - `null_mask`: Optional bitmask indicating null values in input
 /// - `null_count`: Optional count of null values for optimisation
 ///
 /// ## Returns
 /// `Result<FloatArray<f64>, KernelError>` containing:
 /// - **Success**: FloatArray with computed PDF values and appropriate null mask
-/// - **Error**: KernelError::InvalidArguments for invalid shape or scale parameters
+/// - **Error**: KernelError::InvalidArguments for invalid shape or rate parameters
 ///
 /// ## Special Cases and Boundary Conditions
 /// - **x = 0**: Returns β if α = 1, 0 if α > 1, +∞ if α < 1
@@ -150,21 +150,21 @@ pub fn gamma_pdf_simd_to(
 /// - **Invalid parameters**: Returns error for α ≤ 0, β ≤ 0, or non-finite parameters
 ///
 /// ## Errors
-/// - `KernelError::InvalidArguments`: When shape ≤ 0, scale ≤ 0, or parameters are non-finite
+/// - `KernelError::InvalidArguments`: When shape ≤ 0, rate ≤ 0, or parameters are non-finite
 ///
 /// ## Example Usage
 /// ```rust,ignore
 /// let x = [0.5, 1.0, 2.0, 3.0];
 /// let shape = 2.0;  // α = 2
-/// let scale = 1.5;  // β = 1.5 (rate parameter)
-/// let result = gamma_pdf_simd(&x, shape, scale, None, None)?;
+/// let rate = 1.5;  // β = 1.5
+/// let result = gamma_pdf_simd(&x, shape, rate, None, None)?;
 /// // Returns PDF values for x with gamma(α=2, β=1.5)
 /// ```
 #[inline(always)]
 pub fn gamma_pdf_simd(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
@@ -178,7 +178,7 @@ pub fn gamma_pdf_simd(
     let mut out = Vec64::with_capacity(len);
     unsafe { out.set_len(len) };
 
-    gamma_pdf_simd_to(x, shape, scale, out.as_mut_slice(), null_mask, null_count)?;
+    gamma_pdf_simd_to(x, shape, rate, out.as_mut_slice(), null_mask, null_count)?;
 
     Ok(FloatArray::from_vec64(out, null_mask.cloned()))
 }

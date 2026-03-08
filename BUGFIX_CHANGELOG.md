@@ -110,9 +110,20 @@ Instantiated for all 6 types: f64, f32, i64, u64, i32, u32.
 **Fix:** Added bit-shift path for `offset % 8 != 0`: each source byte is split across two destination bytes via `src << bit_off` and `src >> (8 - bit_off)`.
 **Rationale:** On non-AVX-512 targets (W64=4 or W64=2), SIMD block offsets are not byte-aligned, causing bits to be written to wrong positions.
 
-## NOT YET APPLIED (remaining from plan)
+### L5. Gamma distribution: rename `scale` parameter to `rate`
+**Files:** `src/kernels/scientific/distributions/univariate/gamma/mod.rs`, `gamma/std.rs`, `gamma/simd.rs`
+**Fix:** Renamed `scale` parameter to `rate` across all public and internal functions. Updated docs and test names.
+**Rationale:** The parameter was named `scale` but computed as rate (β = 1/θ). SciPy uses scale (θ), so having it called `scale` but behave as rate was a semantic trap. Rate parameterisation is standard in Bayesian statistics; making the name honest eliminates confusion.
 
-### L5-L7. Low priority fixes
+### L6. Geometric quantile SIMD/scalar validation mismatch
+**File:** `src/kernels/scientific/distributions/univariate/geometric/std.rs:236`
+**Fix:** `p_succ < 1.0` → `p_succ <= 1.0`. Added degenerate `p_succ == 1.0` handling in scalar body.
+**Rationale:** SIMD path accepted `p_succ == 1.0` and handled the degenerate case correctly. Scalar path rejected it.
+
+### L7. Chi-squared CDF returns 1.0 for NaN input
+**File:** `src/kernels/scientific/distributions/univariate/chi_squared/std.rs:113-121`
+**Fix:** Split `!xi.is_finite()` into `xi.is_nan()` → NaN and `xi.is_infinite()` → 1.0.
+**Rationale:** `!is_finite()` catches both NaN and infinity. CDF of infinity is 1.0, but CDF of NaN should be NaN.
 
 ## DROPPED
 

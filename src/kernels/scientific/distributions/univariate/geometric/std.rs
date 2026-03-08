@@ -233,9 +233,9 @@ pub fn geometric_quantile_std_to(
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
     // parameter check
-    if !(p_succ > 0.0 && p_succ < 1.0) || !p_succ.is_finite() {
+    if !(p_succ > 0.0 && p_succ <= 1.0) || !p_succ.is_finite() {
         return Err(KernelError::InvalidArguments(
-            "geometric_quantile: p_succ must be in (0,1) and finite".into(),
+            "geometric_quantile: p_succ must be in (0,1] and finite".into(),
         ));
     }
     if pv.is_empty() {
@@ -247,6 +247,9 @@ pub fn geometric_quantile_std_to(
     let scalar_body = |q: f64| -> f64 {
         if !q.is_finite() || q < 0.0 || q > 1.0 {
             return f64::NAN;
+        }
+        if p_succ == 1.0 {
+            return if q == 1.0 { f64::INFINITY } else { 1.0 };
         }
         if q == 0.0 {
             return 1.0;

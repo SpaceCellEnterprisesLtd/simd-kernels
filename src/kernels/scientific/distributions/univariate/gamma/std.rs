@@ -12,7 +12,7 @@
 //! ## Implementation Notes
 //!
 //! ### Rate Parameterisation
-//! All functions use the rate parameterisation internally where β = 1/θ (rate = 1/scale).
+//! All functions use the rate parameterisation where β = 1/θ.
 //!
 //! ### Numerical Stability
 //! - **PDF**: Uses log-space arithmetic to prevent overflow for large shape parameters
@@ -44,12 +44,12 @@ use crate::utils::has_nulls;
 pub fn gamma_pdf_std_to(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if shape <= 0.0 || !shape.is_finite() || scale <= 0.0 || !scale.is_finite() {
+    if shape <= 0.0 || !shape.is_finite() || rate <= 0.0 || !rate.is_finite() {
         return Err(KernelError::InvalidArguments(
             "gamma_pdf: invalid shape or rate".into(),
         ));
@@ -58,7 +58,7 @@ pub fn gamma_pdf_std_to(
         return Ok(());
     }
 
-    let beta = scale;
+    let beta = rate;
     let ln_gamma_k = ln_gamma(shape);
     let log_norm = shape * beta.ln() - ln_gamma_k;
 
@@ -97,7 +97,7 @@ pub fn gamma_pdf_std_to(
 pub fn gamma_pdf_std(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
@@ -109,7 +109,7 @@ pub fn gamma_pdf_std(
     let mut out = Vec64::with_capacity(len);
     unsafe { out.set_len(len) };
 
-    gamma_pdf_std_to(x, shape, scale, out.as_mut_slice(), null_mask, null_count)?;
+    gamma_pdf_std_to(x, shape, rate, out.as_mut_slice(), null_mask, null_count)?;
 
     Ok(FloatArray::from_vec64(out, null_mask.cloned()))
 }
@@ -121,12 +121,12 @@ pub fn gamma_pdf_std(
 pub fn gamma_cdf_std_to(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if shape <= 0.0 || !shape.is_finite() || scale <= 0.0 || !scale.is_finite() {
+    if shape <= 0.0 || !shape.is_finite() || rate <= 0.0 || !rate.is_finite() {
         return Err(KernelError::InvalidArguments(
             "gamma_cdf: invalid shape or rate".into(),
         ));
@@ -134,7 +134,7 @@ pub fn gamma_cdf_std_to(
     if x.is_empty() {
         return Ok(());
     }
-    let beta = scale;
+    let beta = rate;
     let len = x.len();
 
     let eval = |xi: f64| -> f64 {
@@ -171,7 +171,7 @@ pub fn gamma_cdf_std_to(
 pub fn gamma_cdf_std(
     x: &[f64],
     shape: f64,
-    scale: f64, // interpreted as rate β
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
@@ -183,7 +183,7 @@ pub fn gamma_cdf_std(
     let mut out = Vec64::with_capacity(len);
     unsafe { out.set_len(len) };
 
-    gamma_cdf_std_to(x, shape, scale, out.as_mut_slice(), null_mask, null_count)?;
+    gamma_cdf_std_to(x, shape, rate, out.as_mut_slice(), null_mask, null_count)?;
 
     Ok(FloatArray::from_vec64(out, null_mask.cloned()))
 }
@@ -195,12 +195,12 @@ pub fn gamma_cdf_std(
 pub fn gamma_quantile_std_to(
     p: &[f64],
     shape: f64, // k > 0
-    scale: f64, // rate β > 0  (NOT θ)
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    if shape <= 0.0 || !shape.is_finite() || scale <= 0.0 || !scale.is_finite() {
+    if shape <= 0.0 || !shape.is_finite() || rate <= 0.0 || !rate.is_finite() {
         return Err(KernelError::InvalidArguments(
             "gamma_quantile: invalid shape or rate".into(),
         ));
@@ -209,7 +209,7 @@ pub fn gamma_quantile_std_to(
         return Ok(());
     }
 
-    let beta = scale;
+    let beta = rate;
     let len = p.len();
 
     // Use upper-tail inversion when (1-p) is tiny (large-x regime).
@@ -258,12 +258,12 @@ pub fn gamma_quantile_std_to(
 
 /// Gamma quantile (inverse CDF): x such that CDF(x) = p
 ///
-/// IMPORTANT: `scale` is the **rate** β (>0), for consistency with `gamma_pdf`/`gamma_cdf`.
+/// Gamma quantile (inverse CDF): x such that CDF(x) = p
 #[inline(always)]
 pub fn gamma_quantile_std(
     p: &[f64],
     shape: f64, // k > 0
-    scale: f64, // rate β > 0  (NOT θ)
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
@@ -275,7 +275,7 @@ pub fn gamma_quantile_std(
     let mut out = Vec64::with_capacity(len);
     unsafe { out.set_len(len) };
 
-    gamma_quantile_std_to(p, shape, scale, out.as_mut_slice(), null_mask, null_count)?;
+    gamma_quantile_std_to(p, shape, rate, out.as_mut_slice(), null_mask, null_count)?;
 
     Ok(FloatArray::from_vec64(out, null_mask.cloned()))
 }

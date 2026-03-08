@@ -11,8 +11,8 @@
 //!
 //! ## Mathematical Definition
 //!
-//! The gamma distribution is parameterised by a shape parameter α (alpha) and a scale parameter θ
-//! (theta), both strictly positive:
+//! The gamma distribution is parameterised by a shape parameter α (alpha) and a rate parameter β
+//! (beta), both strictly positive:
 //!
 //! - **PDF**: f(x; α, θ) = x^(α-1) exp(-x/θ) / (Γ(α) θ^α) for x ≥ 0
 //! - **CDF**: F(x; α, θ) = γ(α, x/θ) / Γ(α)
@@ -43,19 +43,19 @@ use minarrow::enums::error::KernelError;
 pub fn gamma_pdf_to(
     x: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
     #[cfg(feature = "simd")]
     {
-        simd::gamma_pdf_simd_to(x, shape, scale, output, null_mask, null_count)
+        simd::gamma_pdf_simd_to(x, shape, rate, output, null_mask, null_count)
     }
 
     #[cfg(not(feature = "simd"))]
     {
-        std::gamma_pdf_std_to(x, shape, scale, output, null_mask, null_count)
+        std::gamma_pdf_std_to(x, shape, rate, output, null_mask, null_count)
     }
 }
 
@@ -86,7 +86,7 @@ pub fn gamma_pdf_to(
 ///
 /// * `x` - Input values where the PDF is evaluated
 /// * `shape` - Shape parameter α > 0
-/// * `scale` - **Rate parameter β > 0** (note: this is 1/θ where θ is the scale)
+/// * `rate` - Rate parameter β > 0, the reciprocal of the scale parameter θ
 /// * `null_mask` - Optional bitmask indicating null values in the input
 /// * `null_count` - Optional count of null values for optimisation
 ///
@@ -109,18 +109,18 @@ pub fn gamma_pdf_to(
 pub fn gamma_pdf(
     x: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
     #[cfg(feature = "simd")]
     {
-        simd::gamma_pdf_simd(x, shape, scale, null_mask, null_count)
+        simd::gamma_pdf_simd(x, shape, rate, null_mask, null_count)
     }
 
     #[cfg(not(feature = "simd"))]
     {
-        std::gamma_pdf_std(x, shape, scale, null_mask, null_count)
+        std::gamma_pdf_std(x, shape, rate, null_mask, null_count)
     }
 }
 
@@ -131,12 +131,12 @@ pub fn gamma_pdf(
 pub fn gamma_cdf_to(
     x: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    std::gamma_cdf_std_to(x, shape, scale, output, null_mask, null_count)
+    std::gamma_cdf_std_to(x, shape, rate, output, null_mask, null_count)
 }
 
 /// Computes the cumulative distribution function (CDF) of the gamma distribution.
@@ -163,7 +163,7 @@ pub fn gamma_cdf_to(
 ///
 /// * `x` - Input values where the CDF is evaluated
 /// * `shape` - Shape parameter α > 0
-/// * `scale` - **Rate parameter β > 0** (note: this is 1/θ where θ is the scale)
+/// * `rate` - Rate parameter β > 0, the reciprocal of the scale parameter θ
 /// * `null_mask` - Optional bitmask indicating null values in the input
 /// * `null_count` - Optional count of null values for optimisation
 ///
@@ -186,11 +186,11 @@ pub fn gamma_cdf_to(
 pub fn gamma_cdf(
     x: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
-    std::gamma_cdf_std(x, shape, scale, null_mask, null_count)
+    std::gamma_cdf_std(x, shape, rate, null_mask, null_count)
 }
 
 /// Gamma distribution quantile (zero-allocation variant).
@@ -200,12 +200,12 @@ pub fn gamma_cdf(
 pub fn gamma_quantile_to(
     p: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     output: &mut [f64],
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<(), KernelError> {
-    std::gamma_quantile_std_to(p, shape, scale, output, null_mask, null_count)
+    std::gamma_quantile_std_to(p, shape, rate, output, null_mask, null_count)
 }
 
 /// Computes the quantile function (inverse CDF) of the gamma distribution.
@@ -239,7 +239,7 @@ pub fn gamma_quantile_to(
 ///
 /// * `p` - Probability values in [0, 1] for which quantiles are computed
 /// * `shape` - Shape parameter α > 0
-/// * `scale` - **Rate parameter β > 0** (note: this is 1/θ where θ is the scale)
+/// * `rate` - Rate parameter β > 0, the reciprocal of the scale parameter θ
 /// * `null_mask` - Optional bitmask indicating null values in the input
 /// * `null_count` - Optional count of null values for optimisation
 ///
@@ -268,11 +268,11 @@ pub fn gamma_quantile_to(
 pub fn gamma_quantile(
     p: &[f64],
     shape: f64,
-    scale: f64,
+    rate: f64,
     null_mask: Option<&Bitmask>,
     null_count: Option<usize>,
 ) -> Result<FloatArray<f64>, KernelError> {
-    std::gamma_quantile_std(p, shape, scale, null_mask, null_count)
+    std::gamma_quantile_std(p, shape, rate, null_mask, null_count)
 }
 
 #[cfg(test)]
@@ -299,7 +299,7 @@ mod gamma_tests {
     // gamma_pdf  — correctness
 
     #[test]
-    fn gamma_pdf_shape2_scale1_values() {
+    fn gamma_pdf_shape2_rate1_values() {
         // For k=2, θ=1   ⇒   f(x)=x e^{-x}
         let x = vec64![0.0, 0.5, 1.0, 2.0];
         let expect = vec64![
@@ -315,7 +315,7 @@ mod gamma_tests {
     }
 
     #[test]
-    fn gamma_pdf_shape3_scale2_example() {
+    fn gamma_pdf_shape3_rate_half_example() {
         // k=3, β=0.5 (rate parameterization)  ⇒  f(x)=β^k x^{k-1} e^{-βx} / Γ(k) = 0.5^3 x^{2} e^{-0.5x} / Γ(3) = x^{2} e^{-x/2} / 16
         let x = vec64![0.0, 2.0, 4.0];
         let expect = vec64![
@@ -351,7 +351,7 @@ mod gamma_tests {
     // gamma_cdf  — correctness
 
     #[test]
-    fn gamma_cdf_shape2_scale1_values() {
+    fn gamma_cdf_shape2_rate1_values() {
         // For k=2, θ=1   ⇒   F(x)=1-(x+1)e^{-x}
         let x = vec64![0.0, 0.5, 1.0, 2.0];
         let expect = vec64![
@@ -389,7 +389,7 @@ mod gamma_tests {
     }
 
     #[test]
-    fn gamma_quantile_roundtrip_shape2_scale1() {
+    fn gamma_quantile_roundtrip_shape2_rate1() {
         let k = 2.0;
         let θ = 1.0;
         let x = vec64![0.2, 0.5, 1.3, 4.0];
