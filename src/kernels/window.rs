@@ -397,23 +397,66 @@ pub fn rolling_sum_bool(window: BooleanAVT<'_, ()>, subwindow: usize) -> Integer
 
 /// Zero-allocation variant: writes directly to caller's output buffers.
 #[inline]
-pub fn rolling_product_int_to<T: Num + Copy + One + Zero>(
+pub fn rolling_product_int_to<T: Num + Copy + One + Zero + PartialEq>(
     data: &[T],
     mask: Option<&Bitmask>,
     subwindow: usize,
     out: &mut [T],
     out_mask: &mut Bitmask,
 ) {
-    rolling_push_pop_to(
-        data,
-        mask,
-        subwindow,
-        |a, b| a * b,
-        |a, b| a / b,
-        T::one(),
-        out,
-        out_mask,
+    let n = data.len();
+    assert_eq!(
+        n,
+        out.len(),
+        "rolling_product_int_to: input/output length mismatch"
     );
+
+    if subwindow == 0 {
+        for slot in out.iter_mut() {
+            *slot = T::zero();
+        }
+        return;
+    }
+
+    // Track the product of non-zero elements and a separate zero count
+    // to avoid integer division-by-zero when a zero leaves the window.
+    let mut nz_product = T::one();
+    let mut zero_count = 0usize;
+    let mut invalids = 0usize;
+
+    for i in 0..n {
+        if mask.map_or(true, |m| unsafe { m.get_unchecked(i) }) {
+            if data[i] == T::zero() {
+                zero_count += 1;
+            } else {
+                nz_product = nz_product * data[i];
+            }
+        } else {
+            invalids += 1;
+        }
+
+        if i + 1 > subwindow {
+            let j = i + 1 - subwindow - 1;
+            if mask.map_or(true, |m| unsafe { m.get_unchecked(j) }) {
+                if data[j] == T::zero() {
+                    zero_count -= 1;
+                } else {
+                    nz_product = nz_product / data[j];
+                }
+            } else {
+                invalids -= 1;
+            }
+        }
+
+        if i + 1 < subwindow {
+            unsafe { out_mask.set_unchecked(i, false) };
+            out[i] = T::zero();
+        } else {
+            let ok = invalids == 0;
+            unsafe { out_mask.set_unchecked(i, ok) };
+            out[i] = if zero_count > 0 { T::zero() } else { nz_product };
+        }
+    }
 }
 
 /// Computes rolling products over a sliding window for integer data with overflow protection.

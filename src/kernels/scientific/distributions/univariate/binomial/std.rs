@@ -49,14 +49,19 @@ pub fn binomial_pmf_std_to(
 
     let scalar_body = |ki_f: f64| -> f64 {
         let ki = ki_f as u64;
-        if ki <= n {
-            (ln_choose_n - ln_gamma((ki as f64) + 1.0) - ln_gamma(((n - ki) as f64) + 1.0)
-                + (ki as f64) * p.ln()
-                + ((n - ki) as f64) * (1.0 - p).ln())
-            .exp()
-        } else {
-            0.0
+        if ki > n {
+            return 0.0;
         }
+        if p == 0.0 {
+            return if ki == 0 { 1.0 } else { 0.0 };
+        }
+        if p == 1.0 {
+            return if ki == n { 1.0 } else { 0.0 };
+        }
+        (ln_choose_n - ln_gamma((ki as f64) + 1.0) - ln_gamma(((n - ki) as f64) + 1.0)
+            + (ki as f64) * p.ln()
+            + ((n - ki) as f64) * (1.0 - p).ln())
+        .exp()
     };
 
     let k_f64: Vec<f64> = k.iter().map(|&ki| ki as f64).collect();

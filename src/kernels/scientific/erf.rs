@@ -191,7 +191,10 @@ pub fn erfc(x: f64) -> f64 {
     let ix = get_high_word(x) & 0x7fffffff;
     let sign = if x.is_sign_negative() { -1.0 } else { 1.0 };
     if ix >= 0x7ff00000 {
-        // NaN or inf
+        if x.is_nan() {
+            return f64::NAN;
+        }
+        // inf
         return if sign > 0.0 { 0.0 } else { 2.0 };
     }
     if ix < 0x3feb0000 {
